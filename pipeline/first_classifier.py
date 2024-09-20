@@ -23,8 +23,8 @@ load_dotenv()
 
 os.environ["HUGGINGFACEHUB_API_TOKEN"] = os.getenv("HUGGINGFACEHUB_API_TOKEN")
 
-# local_llm = "llama3.1"
-local_llm = "gemma2:27b"
+local_llm = "llama3.1"
+# local_llm = "gemma2:27b"
 local_embedder = "nomic-embed-text"
 
 embedder = OllamaEmbeddings(model=local_embedder)

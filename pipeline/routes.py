@@ -1,8 +1,8 @@
 import pandas as pd
 import json
 
-# local_llm = "llama3.1"
-local_llm = "gemma2:27b"
+local_llm = "llama3.1"
+# local_llm = "gemma2:27b"
 local_embedder = "nomic-embed-text"
 
 from langchain_ollama.embeddings import OllamaEmbeddings
@@ -60,21 +60,32 @@ def continue_route(state):
         return res
 
     elif datasource == "activite":
-        data = pd.read_csv("data/actis.csv")
-        PROMPT = (
-            f"""Tu es un assistant va répondre à une question de l'utilisateur à propos des prix des activités. Tu vas être très simple et factuel. Tu vas t'exprimer clairement.
 
-        Question : {question}
+        prompt = is_activite(question)
 
-        Tu vas répondre à l'aide de ces données.
-        Données :
-        """
-            + data.to_string()
-        )
-        return PROMPT
+        print("-----------------")
+        print("Prompt : ", prompt)
+        print("-----------------")
+
+        inner_chain = llm | StrOutputParser()
+
+        res = inner_chain.invoke(prompt)
+
+        return res
 
     elif datasource == "other":
-        return try_content_from_mail(question)
+
+        prompt = is_from_mail(question)
+
+        print("-----------------")
+        print("Prompt : ", prompt)
+        print("-----------------")
+
+        inner_chain = llm | StrOutputParser()
+
+        res = inner_chain.invoke(prompt)
+
+        return res
 
 
 def is_accueil(state):
@@ -92,49 +103,6 @@ def is_accueil(state):
         + data.to_string()
     )
     return PROMPT
-
-
-def try_content_from_mail(mail):
-    from langchain_core.documents import Document
-
-    with open("data/mails.json", "r") as f:
-        email_database = json.load(f)
-
-    full_text = []
-    for i, page in enumerate(email_database):
-        question = page["question"]
-        answer = page["answer"]
-        document = Document(
-            page_content=f" QUESTION:\n {question}\n\n ANSWER:\n {answer}",
-        )
-        full_text.append(document)
-
-    from langchain_chroma import Chroma
-
-    embedder = OllamaEmbeddings(model=local_embedder)
-
-    vectorstore = Chroma()
-    vectorstore.delete_collection()
-    vectorstore = Chroma.from_documents(documents=full_text, embedding=embedder)
-    retriever = vectorstore.as_retriever()
-
-    TEMPLATE = """Tu es un assistant qui va m'aider à répondre à des mails. J'ai déjà une base énorme de mails avec des questons et de réponses, et je veux que tu m'aides à répondre à des questions.
-    Je vaius te donner en contexte une paire question/réponse parmi mes mails, puis une question. Tu devras me donner la réponse qui correspond le mieux à la question. Tu peux dire "je ne sais pas" si tu ne sais pas.
-
-    Voici un exemple de question et de réponse :
-    {context}
-
-    Voici la question à laquelle tu dois répondre:
-    {question}
-
-    Tu vas UNIQUEMENT me donner la réponse à donner à la question. Tu n'as pas besoin de me donner la question, je la connais déjà.
-    """
-
-    prompt = ChatPromptTemplate.from_template(TEMPLATE)
-    rag_chain = {"context": retriever, "question": RunnablePassthrough()} | prompt
-
-    res = rag_chain.invoke(mail)
-    return res
 
 
 class RoomDates(BaseModel):
@@ -202,13 +170,13 @@ def is_chambre(mail: str) -> RoomDates:
             Tu vas prendre en compte la période suivante : {out["start_date"]} - {out["end_date"]} pour une chambre de type {out["room_type"]}.
             Tu vas répondre en prenant cette exemple:
             Pour la période demandée, j'ai trouvé ces données :
-            Chambre Bleue (Double) : non disponible
-            Chambre Rouge (Double) : disponible
+            Chambre XX (Double) : (disponible ou non disponible)
+            Chambre XX (Famille) : ...
             etc...
 
             Puis ensuite tu conclus :
 
-            Avec votre demande, la chambre Rouge semble être la plus adaptée.
+            Avec votre demande, la chambre XX semble être la plus adaptée.
 
             Tu vas répondre à l'aide de ces données (0 = non disponible, 1 = disponible) :
             Données :
@@ -217,3 +185,61 @@ def is_chambre(mail: str) -> RoomDates:
     )
 
     return PROMPT
+
+
+def is_activite(mail):
+    data = pd.read_csv("data/actis.csv")
+    PROMPT = (
+        f"""Tu es un assistant va répondre à une question de l'utilisateur à propos des activités proposés. Tu vas être très simple et factuel. Tu vas t'exprimer clairement.
+
+    Question : {mail}
+
+    Tu vas répondre à l'aide de ces données.
+    Données :
+    """
+        + data.to_string()
+    )
+    return PROMPT
+
+
+def is_from_mail(mail):
+    from langchain_core.documents import Document
+
+    with open("data/mails.json", "r") as f:
+        email_database = json.load(f)
+
+    full_text = []
+    for i, page in enumerate(email_database):
+        question = page["question"]
+        answer = page["answer"]
+        document = Document(
+            page_content=f" QUESTION:\n {question}\n\n ANSWER:\n {answer}",
+        )
+        full_text.append(document)
+
+    from langchain_chroma import Chroma
+
+    embedder = OllamaEmbeddings(model=local_embedder)
+
+    vectorstore = Chroma()
+    vectorstore.delete_collection()
+    vectorstore = Chroma.from_documents(documents=full_text, embedding=embedder)
+    retriever = vectorstore.as_retriever()
+
+    TEMPLATE = """Tu es un assistant qui va m'aider à répondre à des mails. J'ai déjà une base énorme de mails avec des questons et de réponses, et je veux que tu m'aides à répondre à des questions.
+    Je vaius te donner en contexte une paire question/réponse parmi mes mails, puis une question. Tu devras me donner la réponse qui correspond le mieux à la question. Tu peux dire "je ne sais pas" si tu ne sais pas.
+
+    Voici un exemple de question et de réponse :
+    {context}
+
+    Voici la question à laquelle tu dois répondre:
+    {question}
+
+    Tu vas UNIQUEMENT me donner la réponse à donner à la question. Tu n'as pas besoin de me donner la question, je la connais déjà.
+    """
+
+    prompt = ChatPromptTemplate.from_template(TEMPLATE)
+    rag_chain = {"context": retriever, "question": RunnablePassthrough()} | prompt
+
+    res = rag_chain.invoke(mail)
+    return res
