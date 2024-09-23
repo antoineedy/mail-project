@@ -4,3 +4,6 @@ lib
 share
 pyvenv.cfg
 .env
+lightning_logs
+model.pth
+pipeline/__pycache__

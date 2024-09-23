@@ -16,6 +16,8 @@ from ollama_instructor.ollama_instructor_client import OllamaInstructorClient
 
 from langchain_core.output_parsers import StrOutputParser
 
+from langchain_core.runnables import RunnableLambda
+
 client = OllamaInstructorClient()
 
 embedder = OllamaEmbeddings(model=local_embedder)
@@ -23,8 +25,10 @@ llm = ChatOllama(model=local_llm, temperature=0)
 
 from datetime import datetime
 
+import streamlit as st
 
-def continue_route(state):
+
+def continue_route_fct(state):
     question = state["question"]
     datasource = state["datasource"]
     print("-----------------")
@@ -43,11 +47,13 @@ def continue_route(state):
 
         res = inner_chain.invoke(prompt)
 
-        return res
+        return {"response": res, "question": question}
 
     elif datasource == "disponibilite_chambres":
 
-        prompt = is_chambre(question)
+        out = is_chambre(question)
+
+        prompt = out["prompt"]
 
         print("-----------------")
         print("Prompt : ", prompt)
@@ -57,7 +63,10 @@ def continue_route(state):
 
         res = inner_chain.invoke(prompt)
 
-        return res
+        out["response"] = res
+        out["question"] = question
+
+        return out
 
     elif datasource == "activite":
 
@@ -71,7 +80,10 @@ def continue_route(state):
 
         res = inner_chain.invoke(prompt)
 
-        return res
+        out["response"] = res
+        out["question"] = question
+
+        return out
 
     elif datasource == "other":
 
@@ -85,7 +97,10 @@ def continue_route(state):
 
         res = inner_chain.invoke(prompt)
 
-        return res
+        return {"response": res, "question": question}
+
+
+continue_route = RunnableLambda(continue_route_fct)
 
 
 def is_accueil(state):
@@ -139,27 +154,41 @@ def is_chambre(mail: str) -> RoomDates:
     week_beg = None
     week_end = None
 
-    for index, row in data.iterrows():
-        if (
-            datetime.strptime(row["Date_Debut"], "%Y-%m-%d") >= start_date
-            and week_beg is None
-        ):
-            week_beg = index - 1
-        if datetime.strptime(row["Date_Fin"], "%Y-%m-%d") >= end_date:
-            week_end = index
-        if week_beg is not None and week_end is not None:
-            break
+    for i in range(len(data)):
+        debut_week = datetime.strptime(data["Date_Debut"][i], "%Y-%m-%d")
+        fin_week = datetime.strptime(data["Date_Fin"][i], "%Y-%m-%d")
+        if start_date >= debut_week and start_date <= fin_week:
+            week_beg = i
+        if end_date >= debut_week and end_date <= fin_week:
+            week_end = i
 
     if week_beg is None or week_end is None:
         raise Exception("No data found for this period")
 
-    data = data.iloc[week_beg:week_end].T
+    data = data.iloc[week_beg : week_end + 1]
+
+    # new line and if dispo and dispo then dispo else not dispo
+
+    final = pd.DataFrame(columns=data.columns)
+    final.loc[0, "Date_Debut"] = data["Date_Debut"][week_beg]
+    final.loc[0, "Date_Fin"] = data["Date_Fin"][week_end]
+    final.loc[0, "Semaine"] = "/"
+    for column in data.columns[3:]:
+        # print(data.value_counts(column)["dispo"])
+        temp = data.value_counts(column).reset_index()
+        if temp[temp[column] == "dispo"]["count"].values == len(data):
+            final.loc[0, column] = "dispo"
+        else:
+            final.loc[0, column] = "indispo"
 
     out = {
         "start_date": start_date,
         "end_date": end_date,
+        "week_beg": week_beg + 1,
+        "week_end": week_end + 1,
         "room_type": room_type,
         "data": data,
+        "final": final,
     }
 
     PROMPT = (
@@ -181,10 +210,12 @@ def is_chambre(mail: str) -> RoomDates:
             Tu vas répondre à l'aide de ces données (0 = non disponible, 1 = disponible) :
             Données :
             """
-        + out["data"].to_string()
+        + out["final"].to_string()
     )
 
-    return PROMPT
+    out["prompt"] = PROMPT
+
+    return out
 
 
 def is_activite(mail):

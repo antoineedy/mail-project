@@ -25,6 +25,7 @@ def test_router(datasource, queries):
         "error": 0,
     }
     for query in tqdm(queries):
+        query = queries[query]
         found = first_classifier.invoke(query)["datasource"]
         nb[found] += 1
         if found != datasource:
@@ -36,18 +37,17 @@ def test_router(datasource, queries):
     print(nb)
 
 
-with open("test/test_data/queries_disponibilite_chambres.json", "r") as f:
-    queries = json.load(f)
+to_test = [True, True, True]
 
-with open("test/test_data/queries_ouverture_accueil.json", "r") as f:
-    queries = json.load(f)
-
-with open("test/test_data/queries_activite.json", "r") as f:
-    queries = json.load(f)
-
-if False:
+if to_test[0]:
+    with open("test/test_data/queries_ouverture_accueil.json", "r") as f:
+        queries = json.load(f)
     test_router("ouverture_accueil", queries)
-if False:
+if to_test[1]:
+    with open("test/test_data/queries_disponibilite_chambres.json", "r") as f:
+        queries = json.load(f)
     test_router("disponibilite_chambres", queries)
-if False:
+if to_test[2]:
+    with open("test/test_data/queries_activite.json", "r") as f:
+        queries = json.load(f)
     test_router("activite", queries)

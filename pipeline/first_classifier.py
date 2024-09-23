@@ -19,6 +19,14 @@ from langchain_community.chat_models import ChatOllama
 
 from ollama_instructor.ollama_instructor_client import OllamaInstructorClient
 
+import torch
+from transformers import (
+    AutoModelForSequenceClassification,
+    CamembertForMaskedLM,
+    AutoTokenizer,
+    AutoConfig,
+)
+
 load_dotenv()
 
 os.environ["HUGGINGFACEHUB_API_TOKEN"] = os.getenv("HUGGINGFACEHUB_API_TOKEN")
@@ -63,4 +71,49 @@ def choose_route(mail: str) -> RouteQuery:
     }
 
 
-first_classifier = RunnableLambda(choose_route)
+tokenizer = AutoTokenizer.from_pretrained("camembert-base")
+
+
+def get_preds(model, tokenizer, sentence):
+    tokenized_sentence = tokenizer(sentence, return_tensors="pt")
+    input_ids, attention_mask = (
+        tokenized_sentence.input_ids,
+        tokenized_sentence.attention_mask,
+    )
+
+    out = model(
+        input_ids=tokenized_sentence.input_ids,
+        attention_mask=tokenized_sentence.attention_mask,
+    )
+
+    logits = out.logits
+
+    probas = torch.softmax(logits, -1).squeeze()
+
+    pred = torch.argmax(probas)
+
+    ID_TO_LABEL = {0: "activite", 1: "disponibilite_chambres", 2: "ouverture_accueil"}
+
+    return ID_TO_LABEL[int(pred)], probas[pred].item()
+
+
+def choose_route_2(mail: str):
+
+    model = torch.load(
+        "/Users/antoineedy/Documents/Formation/mail-project/model.pth",
+        weights_only=False,
+    )
+
+    label_predicted, proba = get_preds(model, tokenizer, mail)
+
+    # print("ùùù", mail)
+    # print("***", proba)
+    # print("%%%", label_predicted)
+
+    if proba < 0.7:
+        return {"question": mail, "datasource": "other"}
+    else:
+        return {"question": mail, "datasource": label_predicted}
+
+
+first_classifier = RunnableLambda(choose_route_2)
