@@ -12,7 +12,17 @@ from pipeline.output import as_output
 
 chain = first_classifier | continue_route | as_output
 
-st.text_area("Mail reçu", value="", key="received_mail")
+st.set_page_config(layout="wide")
+
+example = """Bonjour,
+
+Je veux avoir des informations sur la disponibilité des chambres familliales à partir du 1er juillet et pour une semaine.
+
+Cordialement,
+
+Steven Stevenson"""
+
+st.text_area("Mail reçu", value=example, key="received_mail", height=200)
 
 
 def write_center(message):
@@ -57,6 +67,9 @@ def my_pipeline(mail):
                     st.write("Type de chambre :", second["room_type"])
                     st.write("Données : ", second["data"])
                     st.write("Données finales : ", second["final"])
+                if first["datasource"] == "activite":
+                    st.divider()
+                    st.write("Données : ", second["data"])
 
     with wait:
         with st.spinner("Rédaction de la réponse..."):

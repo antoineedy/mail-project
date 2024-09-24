@@ -6,4 +6,4 @@ pyvenv.cfg
 .env
 lightning_logs
 model.pth
-pipeline/__pycache__
+pipeline/__pycache__/*

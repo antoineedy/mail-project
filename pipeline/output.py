@@ -8,20 +8,23 @@ llm = ChatOllama(model=local_llm, temperature=0)
 
 
 def as_output_fct(state):
-    question = state["question"]
-    reponse = state["response"]
-    print("-----------------")
-    print(f"Question : {question}")
-    print(f"Réponse : {reponse}")
-    print("-----------------")
-    PROMPT = f"""Je cherche à réécire un mail que j'ai rédigé, en faisant bien attention à utiliser les règles de politesse et de développer tes réponses. Tu vas signer "L'équipe de la résidence MozambFun".
-    Tu vas UNIQUEMENT réécrire le mail, sans ajouter de contenu.
+    BASE_PROMPT = """Tu vas me rédiger un mail assez long et cordial à un client de l'hotel en signant MozambFun. Je veux que tu me donnes uniquement le mail à envoyer en réponse."""
+    if state["datasource"] == "activite":
+        PROMPT = f"""
+        Le client demande à réaliser une activité. Voici son message: {state["question"]}.
+        Tu vas lui répondre en utilisant la base de données suivante : {state["data"].to_string()}.
+        """
+    elif state["datasource"] == "disponibilite_chambres":
+        PROMPT = f"""
+        Le client demande la disponibilité des chambres de l'hotel. Voici son message : {state["question"]}."
+        Tu vas lui répondre en utilisant la base de données suivante : {state["final"].to_string()}.
+        """
+    elif state["datasource"] == "ouverture_accueil":
+        PROMPT = f"""
+        Le client demande les horaires d'ouverture de l'accueil. Voici son message : {state["question"]}.
+        Tu vas lui répondre en utilisant la base de données suivante : {state["data"].to_string()}."""
 
-    Question : {question}
-
-    Réponse : {reponse} 
-
-    Je ne peux pas refuser de répondre. Voici une proposition de réponse :"""
+    PROMPT = BASE_PROMPT + PROMPT
 
     output_chain = llm | StrOutputParser()
 
