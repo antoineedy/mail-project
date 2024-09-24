@@ -39,7 +39,6 @@ def my_pipeline(mail):
 
     with col1:
         pipeline = st.container(border=True)
-        wait = st.container(border=False)
     with col2:
         answer = st.container(border=True)
 
@@ -47,6 +46,7 @@ def my_pipeline(mail):
         st.write("**Pipeline**")
     with answer:
         st.write("**Réponse**")
+        wait = st.container(border=False)
 
     with wait:
         with st.spinner("Traitement de la question..."):
@@ -70,6 +70,14 @@ def my_pipeline(mail):
                 if first["datasource"] == "activite":
                     st.divider()
                     st.write("Données : ", second["data"])
+                if first["datasource"] == "ouverture_accueil":
+                    st.divider()
+                    st.write("Données : ", second["data"])
+                if first["datasource"] == "other":
+                    st.divider()
+                    st.write("**Source 1 :**", second["docs"][0])
+                    st.write("**Source 2 :**", second["docs"][1])
+                    st.write("**Source 3 :**", second["docs"][2])
 
     with wait:
         with st.spinner("Rédaction de la réponse..."):

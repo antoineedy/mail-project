@@ -23,6 +23,11 @@ def as_output_fct(state):
         PROMPT = f"""
         Le client demande les horaires d'ouverture de l'accueil. Voici son message : {state["question"]}.
         Tu vas lui répondre en utilisant la base de données suivante : {state["data"].to_string()}."""
+    elif state["datasource"] == "other":
+        PROMPT = f"""
+        Le client demande des informations supplémentaires générales. Voici son message : {state["question"]}.
+        Tu vas lui répondre en utilisant exemples de question/réponses suivants : {" ".join(state["docs"])}.
+        """
 
     PROMPT = BASE_PROMPT + PROMPT
 

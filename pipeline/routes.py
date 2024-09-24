@@ -51,19 +51,9 @@ def continue_route_fct(state):
 
     elif state["datasource"] == "other":
 
-        raise Exception("Not implemented")
+        state = is_from_mail(state)
 
-        prompt = is_from_mail(state["question"])
-
-        print("-----------------")
-        print("Prompt : ", prompt)
-        print("-----------------")
-
-        inner_chain = llm | StrOutputParser()
-
-        res = inner_chain.invoke(prompt)
-
-        return {"response": res, "question": state["question"]}
+        return state
 
 
 continue_route = RunnableLambda(continue_route_fct)
@@ -176,7 +166,7 @@ def is_activite(state):
     return state
 
 
-def is_from_mail(mail):
+def is_from_mail(state):
     from langchain_core.documents import Document
 
     with open("data/mails.json", "r") as f:
@@ -196,22 +186,13 @@ def is_from_mail(mail):
     vectorstore = Chroma()
     vectorstore.delete_collection()
     vectorstore = Chroma.from_documents(documents=full_text, embedding=embedder)
-    retriever = vectorstore.as_retriever()
+    retriever = vectorstore.as_retriever(k=3)
 
-    TEMPLATE = """Tu es un assistant qui va m'aider à répondre à des mails. J'ai déjà une base énorme de mails avec des questons et de réponses, et je veux que tu m'aides à répondre à des questions.
-    Je vaius te donner en contexte une paire question/réponse parmi mes mails, puis une question. Tu devras me donner la réponse qui correspond le mieux à la question. Tu peux dire "je ne sais pas" si tu ne sais pas.
+    docs = retriever.invoke(state["question"])
+    l_docs = []
+    for doc in docs:
+        l_docs.append(doc.page_content)
 
-    Voici un exemple de question et de réponse :
-    {context}
+    state["docs"] = l_docs
 
-    Voici la question à laquelle tu dois répondre:
-    {question}
-
-    Tu vas UNIQUEMENT me donner la réponse à donner à la question. Tu n'as pas besoin de me donner la question, je la connais déjà.
-    """
-
-    prompt = ChatPromptTemplate.from_template(TEMPLATE)
-    rag_chain = {"context": retriever, "question": RunnablePassthrough()} | prompt
-
-    res = rag_chain.invoke(mail)
-    return res
+    return state
